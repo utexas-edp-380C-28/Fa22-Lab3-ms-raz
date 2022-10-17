@@ -186,22 +186,23 @@ varY <- t(params$betas) %*% params$Sigma %*% params$betas # eq 22
 # determine variance of error SD(e)
 varE <- varY * (1/params$R2 - 1) # eq 23
 
+# expectation of Y
+Ey <- params$muY - t(params$mu) %*% params$betas
+
 # [-1] bc of intercept, need to remove when multiplying by betas
-Y <- params$muY + X[,-1] %*% params$betas + rnorm(0, sqrt(varE), n = nrow(X))
+Y <- Ey[1] + X[,-1] %*% params$betas + rnorm(0, sqrt(varE), n = nrow(X))
 
 # analyze OLS using myLM function
 myMod <- myLM(Y = Y, X = X)
 myMod
 
-summary(lm(Y ~ X[,1] + X[,2]))
-
 # 
-# Estimate          SE      t value   p value
-# b0    11.0629399882 0.040463429 273.40589430 0.0000000
-# b1     0.9891621375 0.006771543 146.07632891 0.0000000
-# b2    -0.0002641061 0.003373688  -0.07828409 0.9376022
-# SD(e)  2.0361730796          NA           NA        NA
-# R2     0.1900023581          NA           NA        NA
+#           Estimate          SE   t value p value
+# b0    -4.9370600 0.040463429 -122.0129       0
+# b1     0.9891621 0.006771543  146.0763       0
+# b2     0.9997359 0.003373688  296.3332       0
+# SD(e)  2.0361731          NA        NA      NA
+# R2     0.5978875          NA        NA      NA
 
 # create a difference bw the population parameters for Y and the results from you generated data
 
@@ -213,24 +214,25 @@ summary(lm(Y ~ X[,1] + X[,2]))
 # SD(e)  2.0361730796          NA           NA        NA
 # R2     0.1900023581          NA           NA        NA
 
-pop <- c(10, 1, 1, varE, 0.6)
+pop <- c(Ey, params$betas, varE, params$R2)
 estimate <- myMod[,1]
 difference <- pop - estimate
 
 difTab <- cbind(pop, estimate, difference)
 
-#            pop      estimate  difference
-# b0    10.000000 11.0629399882 -1.06293999
-# b1     1.000000  0.9891621375  0.01083786
-# b2     1.000000 -0.0002641061  1.00026411
-# SD(e)  4.133333  2.0361730796  2.09716025
-# R2     0.600000  0.1900023581  0.40999764
+#           pop   estimate    difference
+# b0    -5.000000 -4.9370600 -0.0629399882
+# b1     1.000000  0.9891621  0.0108378625
+# b2     1.000000  0.9997359  0.0002641061
+# SD(e)  4.133333  2.0361731  2.0971602537
+# R2     0.600000  0.5978875  0.0021125328
 
 #-------------------------3.2c------------------------------------------#
 # Method 2: Setting the Marginal Correlations
 set.seed(123782)
 
 newParams <- list(
+    muX = c(5, 10),
     sigmaX1 = 1, 
     sigmaX2 = 2, 
     rhoY1 = .3, 
@@ -256,36 +258,39 @@ covariancematirx <- diag(c(newParams$sigmaY,
 # solve for betas
 betaZ <- solve(covariancematirx[-1, -1]) %*% covariancematirx[1, -1]
 
-# eror variance
+# ereor variance
 sigmaE <- covariancematirx[1,1] - t(betaZ) %*%  covariancematirx[1, -1]
 
+# expectation of Y
+Ey <- newParams$muY - t(newParams$muX) %*% betaZ
+
 # generate y
-yz <- newParams$muY + X[,-1] %*% betaZ + rnorm(n, 0, sqrt(sigmaE))
+yz <- Ey[1] + X[,-1] %*% betaZ + rnorm(n, 0, sqrt(sigmaE))
 
 # analyze
 myMod2 <- myLM(yz,  X)
 
-#           Estimate          SE    t value   p value
-# b0    12.163235026 0.079813607 152.395505 0.0000000
-# b1    -1.335631251 0.013356784 -99.996472 0.0000000
-# b2     0.009282314 0.006654558   1.394881 0.1630549
-# SD(e)  4.016325923          NA         NA        NA
-# R2     0.098331856          NA         NA        NA
+#           Estimate          SE   t value p value
+# b0    11.9179656 0.079797134  149.3533       0
+# b1     2.3128462 0.013354027  173.1947       0
+# b2    -1.3470146 0.006653184 -202.4616       0
+# SD(e)  4.0154969          NA        NA      NA
+# R2     0.3542002          NA        NA      NA
 
 # get R2
 R2 <- Rm[-1,1] %*% solve(Rm[-1, -1]) %*% Rm[-1, 1]
 
-pop <- c(10, betaZ[1], betaZ[2], sigmaE, R2)
+pop <- c(Ey, betaZ[1], betaZ[2], sqrt(sigmaE), R2)
 estimate <- myMod2[,1]
 difference <- pop - estimate
 
 difTab <- cbind(pop, estimate, difference)
-#               pop   estimate   difference
-# b0    10.0000000  9.8555427  0.144457282
-# b1     2.3076923  2.3182149 -0.010522596
-# b2    -1.3461538 -1.3368715 -0.009282314
-# SD(e) 16.1538462  4.0163259 12.137520231
-# R2     0.3538462  0.3524265  0.001419650
+#               pop   estimate    difference
+# b0    11.9230769 11.9179656  0.0051112956
+# b1     2.3076923  2.3128462 -0.0051539037
+# b2    -1.3461538 -1.3470146  0.0008607601
+# SD(e)  4.0191848  4.0154969  0.0036878149
+# R2     0.3538462  0.3542002 -0.0003540325
 
 #-------------------------3.3d------------------------------------------#
 # Generating for Any Number of Predictors
@@ -356,7 +361,11 @@ method1Fun <- function(n, x_p, y_p, betas, R2){
     # determine the error variance 
     varE <- varY * (1/R2 - 1) 
     # generate y
-    Y <- y_p$mus + X[,-1] %*% betas + rnorm(0, sqrt(varE), n = n)
+    # expectation of Y
+    Ey <- params$mus[1] - t(params$mus[-1]) %*% betas
+    # generate y
+    Y <- Ey[1] + X[,-1] %*% betas + rnorm(n, 0, sqrt(sigmaE))
+    
     dat <- cbind(Y, X)
     return(dat)
 }
@@ -364,14 +373,14 @@ method1Fun <- function(n, x_p, y_p, betas, R2){
 test1 <- method1Fun(n, x_p, y_p, betas, R2)
 method1Mod <- myLM(test1[,1], test1[,2:7])
 #           Estimate          SE    t value p value
-# b0    26.0219373 0.015237786 1707.72427       0
-# b1     0.9812441 0.015667438   62.62952       0
-# b2     1.0199428 0.011092474   91.94908       0
-# b3     0.9881404 0.009068983  108.95824       0
-# b4     0.9852023 0.007850763  125.49128       0
-# b5     1.0050628 0.007062545  142.30886       0
-# SD(e)  4.8184817          NA         NA      NA
-# R2     0.4986015          NA         NA      NA
+# b0    25.0182701 0.012690524 1971.41356       0
+# b1     0.9843795 0.013048351   75.44091       0
+# b2     1.0166090 0.009238173  110.04438       0
+# b3     0.9901229 0.007552943  131.09100       0
+# b4     0.9876760 0.006538371  151.05843       0
+# b5     1.0042164 0.005881917  170.72944       0
+# SD(e)  4.0129881          NA         NA      NA
+# R2     0.5893671          NA         NA      NA
 
 # get varE parameter to compare to estimate
 params <- transFun(x_p, y_p)
@@ -385,28 +394,29 @@ X <- cbind(matrix(1, NROW(X)), X)
 varY <- t(betas) %*% covarMatrix %*% betas # eq 22
 # determine the error variance 
 varE <- varY * (1/R2 - 1) 
+# generate y
+# expectation of Y
+Ey <- params$mus[1] - t(params$mus[-1]) %*% betas
 
-pop <- c(10, betas[1], betas[2], betas[3], betas[4], betas[5], varE, 0.5)
+pop <- c(Ey, betas, sqrt(varE), R2)
 estimate <- method1Mod[,1]
 difference <- pop - estimate
 
 difTab <- cbind(pop, estimate, difference)
-#           pop   estimate    difference
-# b0    10.00000 26.0219373 -16.021937347
-# b1     1.00000  0.9812441   0.018755865
-# b2     1.00000  1.0199428  -0.019942757
-# b3     1.00000  0.9881404   0.011859598
-# b4     1.00000  0.9852023   0.014797719
-# b5     1.00000  1.0050628  -0.005062766
-# SD(e) 23.28952  4.8184817  18.471042630
-# R2     0.50000  0.4986015   0.001398544
+#           pop   estimate   difference
+# b0    25.000000 25.0182701 -0.018270136
+# b1     1.000000  0.9843795  0.015620494
+# b2     1.000000  1.0166090 -0.016608976
+# b3     1.000000  0.9901229  0.009877059
+# b4     1.000000  0.9876760  0.012324021
+# b5     1.000000  1.0042164 -0.004216436
+# SD(e)  4.825922  4.0129881  0.812933981
+# R2     0.500000  0.5893671 -0.089367060
 
 # Method 2, generate from marginal correlations
 # Test the Method 1 function using five predictors with n = 100000 that are all cor- related 0.15 with variances from 1 to 5. The correlations with Y ought to be −.15, −.50, .15, 0.30, and 0.20. The mean and variance of Y are μy = 10, σy = 4. Set the seed to 1237
 set.seed(1237)
 n <- 100000
-betas <- c(1,1,1,1,1)
-
 
 x_p <- list(
     mus = c(0,0,0,0,0),
@@ -416,7 +426,7 @@ x_p <- list(
 
 y_p <- list(
     mus = c(10),
-    sigmas = c(sqrt(4)),
+    sigmas = c(4),
     rhos = c(-.15, -.5, .15, .30, .20)
 )
 
@@ -436,7 +446,11 @@ method2Fun <- function(n, x_p, y_p, betas){
     # determine the error variance 
     varE <- covarMatrix[1,1] - t(betas) %*%  covarMatrix[1, -1]
     # generate y
-    Y <- y_p$mus + X[,-1] %*% betas + rnorm(0, sqrt(varE), n = n)
+    # expectation of Y
+    Ey <- params$mus[1] - t(params$mus[-1]) %*% betas
+    # generate y
+    Y <- Ey[1] + X[,-1] %*% betas + rnorm(n, 0, sqrt(sigmaE))
+    
     dat <- cbind(Y, X)
     return(dat)
 }
@@ -457,7 +471,8 @@ method2Mod
 
 # calculate R2
 # function to create the covariance matrix
-
+params <- transFun(x_p, y_p)
+# empty matrix
 corMatrix = matrix(NA, nrow = length(params$sigmas), ncol = length(params$sigmas))
     # put in the diagonal correlations which is always just 1s
 diag(corMatrix) <- rep(1, length(params$sigmas))
@@ -465,45 +480,32 @@ diag(corMatrix) <- rep(1, length(params$sigmas))
 corMatrix[lower.tri(corMatrix)] <- params$rhos
     #and the upper triangle
 corMatrix[upper.tri(corMatrix)] <- t(corMatrix)[upper.tri(t(corMatrix))]
+# get R2 to compare to estimate eq 27
+R2 <- corMatrix[-1, 1] %*% solve(corMatrix[-1, -1]) %*% corMatrix[1, -1]
 
-#eq 27
-R2 <- corMatrix[-1,1] %*% solve(corMatrix[-1, -1]) %*% corMatrix[-1, 1]
+Ey <- params$mus[1] - t(params$mus[-1]) %*% betas
+# generate y
+Y <- Ey[1] + X[,-1] %*% betas + rnorm(n, 0, sqrt(sigmaE))
 
-
-pop <- c(10, betas[1], betas[2], betas[3], betas[4], betas[5], varE, R2)
-estimate <- method2Mod[,1]
-difference <- pop - estimate
-
-difTab <- cbind(pop, estimate, difference)
-
-# get varE to compare to estimate
-params <- transFun(x_p, y_p)
 #gereate covrmtrix for x
-covarMatrix <- genSigma(x_p)
-# generate X
-X <- rmvnorm(n, x_p$mus, covarMatrix)
-#intercept
-X <- cbind(matrix(1, NROW(X)), X)
-# generate the covariance matrix, Sigma
 covarMatrix <- genSigma(params)
 # solve for the betas
 betas <- solve(covarMatrix[-1, -1]) %*% covarMatrix[1, -1]
 # determine the error variance 
 varE <- covarMatrix[1,1] - t(betas) %*%  covarMatrix[1, -1]
 
-pop <- c(10, betas[1], betas[2], betas[3], betas[4], betas[5], varE, 0.5)
+pop <- c(Ey, betas, sqrt(varE), R2)
 estimate <- method2Mod[,1]
 difference <- pop - estimate
 
 difTab <- cbind(pop, estimate, difference)
 
-# difTab
-#          pop   estimate  difference
-# b0    10.0000000 10.2086353 -0.20863535
-# b1    -0.3529412 -0.4859086  0.13296745
-# b2    -0.8318903 -0.7473232 -0.08456711
-# b3     0.2037707  0.1828802  0.02089050
-# b4     0.3529412  0.3673510 -0.01440985
-# b5     0.2104535  0.1796883  0.03076514
-# SD(e)  2.0000000  1.2342154  0.76578457
+#               pop   estimate  difference
+# b0    10.0000000 10.4172707 -0.41727069
+# b1    -0.7058824 -0.9718173  0.26593491
+# b2    -1.6637807 -1.4946464 -0.16913421
+# b3     0.4075414  0.3657604  0.04178099
+# b4     0.7058824  0.7347021 -0.02881971
+# b5     0.4209069  0.3593766  0.06153028
+# SD(e)  2.8284271  2.4684309  0.35999626
 # R2     0.5000000  0.5314705 -0.03147045
