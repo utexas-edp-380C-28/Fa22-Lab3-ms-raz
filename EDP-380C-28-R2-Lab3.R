@@ -84,14 +84,12 @@ num1 <- list(
 # 2.4 Construct a function that produces a solution to OLS regression. The function should map onto the following inputs: function(y, X)
 
 myLM <- function(Y, X){
-    X <- cbind(matrix(1, length(Y)), X) # add the row of 1s for the intercept 
     betas <- solve((t(X) %*% X)) %*% t(X) %*% Y # eq 11
-    RSE = sqrt((t( Y - X %*% betas) %*% (Y - X %*% betas))/(length(Y) - ncol(X))) # eq 13 
-    SEs = t(sqrt(RSE^2 %*% diag(solve(t(X) %*% X)))) # eq 17 but read on
+    RSE <- sqrt((t( Y - X %*% betas) %*% (Y - X %*% betas))/(length(Y) - ncol(X))) # eq 13 
+    SEs <- t(sqrt(RSE^2 %*% diag(solve(t(X) %*% X)))) # eq 17 but read on
     R2 <- (t(betas) %*% cov(X) %*% betas) /(t(betas) %*% cov(X) %*% betas + RSE^2)
     tval <- betas/SEs
     PrT <- 2 * pt(abs(tval), length(Y)-ncol(X), lower.tail = FALSE)
-    
     
     tmp <- cbind(
         Estimate = betas[,1], 
@@ -100,25 +98,28 @@ myLM <- function(Y, X){
         'p value' = PrT[, 1]
     )
     
-    rownames(tmp)[1] <- "Intercept"
+    rownames(tmp) <- c(sprintf("b%1d", 0:(length(betas)-1)))
     
     results <- rbind(tmp, 
-                 'SD(e)' = c(RSE, rep(NA, ncol(tmp)-1)), 
-                 'R2' = c(R2, rep(NA, ncol(tmp)-1))
+                     'SD(e)' = c(RSE, rep(NA, ncol(tmp)-1)), 
+                     'R2' = c(R2, rep(NA, ncol(tmp)-1))
     )
     
     return(results)
 }
 
-myLM(Y = mtcars$mpg, X = as.matrix(mtcars[, c("wt", "cyl", "gear")]))
+X <- as.matrix(mtcars[, c("wt", "cyl", "gear")])
+X <- cbind(matrix(1, NROW(mtcars)), X) # add the row of 1s for the intercept 
+
+myLM(Y = mtcars$mpg, X)
 
 # Estimate        SE    t value      p value
-# Intercept 42.3863641 4.3789952  9.6794726 1.965929e-10
-# wt        -3.3920819 0.8208025 -4.1326409 2.941570e-04
-# cyl       -1.5280010 0.4197533 -3.6402363 1.092609e-03
-# gear      -0.5228629 0.7788703 -0.6713094 5.075244e-01
-# SD(e)      2.5921848        NA         NA           NA
-# R2         0.9210834        NA         NA           NA
+# b0    42.3863641 4.3789952  9.6794726 1.965929e-10
+# b1    -3.3920819 0.8208025 -4.1326409 2.941570e-04
+# b2    -1.5280010 0.4197533 -3.6402363 1.092609e-03
+# b3    -0.5228629 0.7788703 -0.6713094 5.075244e-01
+# SD(e)  2.5921848        NA         NA           NA
+# R2     0.8182681        NA         NA           NA
 
 # check
 # summary(lm(mpg ~ wt + cyl + gear, data = mtcars))
@@ -135,8 +136,8 @@ translateFun <- function(mu, sigma, rho){
         mu = mu, 
         # create covariance matrix
         Sigma = matrix(diag(sigma), length(mu)) %*% 
-                matrix(c(1, rho, rho, 1), nrow = 2) %*% 
-                matrix(diag(sigma), length(mu)),
+            matrix(c(1, rho, rho, 1), nrow = 2) %*% 
+            matrix(diag(sigma), length(mu)),
         rho = rho 
     )
 }
@@ -148,6 +149,7 @@ n <- 100000
 
 # generate correlated Xs from mus and covar matrix after the parameters have been translated using the translate function
 X <- rmvnorm(n, params$mu, params$Sigma)
+X <- cbind(matrix(1, NROW(X)), X) # add the row of 1s for the intercept 
 
 #-------------------------3.2b------------------------------------------#
 # Method 1: Setting the Total Variance Explained
@@ -181,11 +183,11 @@ params <- translateFun(mu = c(5, 10),
 # matrix way
 varY <- t(params$betas) %*% params$Sigma %*% params$betas # eq 22
 
-# determine variance of error
+# determine variance of error SD(e)
 varE <- varY * (1/params$R2 - 1) # eq 23
 
-# generate Y
-Y <- params$muY + params$betas[1]*X[,1] + params$betas[2]*X[,2] + rnorm(0, sqrt(varE), n = nrow(X))
+# [-1] bc of intercept, need to remove when multiplying by betas
+Y <- params$muY + X[,-1] %*% params$betas + rnorm(0, sqrt(varE), n = nrow(X))
 
 # analyze OLS using myLM function
 myMod <- myLM(Y = Y, X = X)
@@ -193,22 +195,36 @@ myMod
 
 summary(lm(Y ~ X[,1] + X[,2]))
 
-# check with lm()
-# summary(lm(Y ~ X[,1] + X[,2]))
 # 
-# Estimate          SE  t value p value
-# Intercept 10.0629400 0.040463429 248.6922       0
-# X1         0.9891621 0.006771543 146.0763       0
-# X2         0.9997359 0.003373688 296.3332       0
-# SD(e)      2.0361731          NA       NA      NA
-# R2         0.7517080          NA       NA      NA
+# Estimate          SE      t value   p value
+# b0    11.0629399882 0.040463429 273.40589430 0.0000000
+# b1     0.9891621375 0.006771543 146.07632891 0.0000000
+# b2    -0.0002641061 0.003373688  -0.07828409 0.9376022
+# SD(e)  2.0361730796          NA           NA        NA
+# R2     0.1900023581          NA           NA        NA
 
-# create a difference bw the population paramters for Y and the results from you generated data
-# intercept, muY
-myMod[1] - params$muY
-# varY, sigmaY
-varY - params$sigmaY
+# create a difference bw the population parameters for Y and the results from you generated data
 
+# myMod
+#           Estimate          SE      t value   p value
+# b0    11.0629399882 0.040463429 273.40589430 0.0000000
+# b1     0.9891621375 0.006771543 146.07632891 0.0000000
+# b2    -0.0002641061 0.003373688  -0.07828409 0.9376022
+# SD(e)  2.0361730796          NA           NA        NA
+# R2     0.1900023581          NA           NA        NA
+
+pop <- c(10, 1, 1, varE, 0.6)
+estimate <- myMod[,1]
+difference <- pop - estimate
+
+difTab <- cbind(pop, estimate, difference)
+
+#            pop      estimate  difference
+# b0    10.000000 11.0629399882 -1.06293999
+# b1     1.000000  0.9891621375  0.01083786
+# b2     1.000000 -0.0002641061  1.00026411
+# SD(e)  4.133333  2.0361730796  2.09716025
+# R2     0.600000  0.1900023581  0.40999764
 
 #-------------------------3.2c------------------------------------------#
 # Method 2: Setting the Marginal Correlations
@@ -225,30 +241,51 @@ newParams <- list(
 
 # corrleation matrix of y, x1, x2
 Rm <- matrix(c(1, newParams$rhoY1, newParams$rhoY2, 
-             newParams$rhoY1, 1, params$rho, 
-             newParams$rhoY2, params$rho, 1), nrow = 3)
+               newParams$rhoY1, 1, params$rho, 
+               newParams$rhoY2, params$rho, 1), nrow = 3)
 
 # full covariance matrix
 covariancematirx <- diag(c(newParams$sigmaY, 
                            newParams$sigmaX1, 
                            newParams$sigmaX2)) %*% 
-                    Rm %*% 
-                    diag(c(newParams$sigmaY,
-                           newParams$sigmaX1,
-                           newParams$sigmaX2))
+    Rm %*% 
+    diag(c(newParams$sigmaY,
+           newParams$sigmaX1,
+           newParams$sigmaX2))
 
 # solve for betas
-betaZ <- solve(covariancematirx[2:3, 2:3]) %*% covariancematirx[1, 2:3]
+betaZ <- solve(covariancematirx[-1, -1]) %*% covariancematirx[1, -1]
 
 # eror variance
-sigmaE <- covariancematirx[1,1] - t(betaZ) %*%  covariancematirx[1, 2:3]
+sigmaE <- covariancematirx[1,1] - t(betaZ) %*%  covariancematirx[1, -1]
 
 # generate y
-yz <- newParams$muY + X[,1]*betaZ[1,1] + X[,2]*betaZ[2,1] + rnorm(n, 0, sqrt(sigmaE))
+yz <- newParams$muY + X[,-1] %*% betaZ + rnorm(n, 0, sqrt(sigmaE))
 
 # analyze
-myLM(yz,  X)
-summary(lm(yz ~ X[,1] + X[,2]))
+myMod2 <- myLM(yz,  X)
+
+#           Estimate          SE    t value   p value
+# b0    12.163235026 0.079813607 152.395505 0.0000000
+# b1    -1.335631251 0.013356784 -99.996472 0.0000000
+# b2     0.009282314 0.006654558   1.394881 0.1630549
+# SD(e)  4.016325923          NA         NA        NA
+# R2     0.098331856          NA         NA        NA
+
+# get R2
+R2 <- Rm[-1,1] %*% solve(Rm[-1, -1]) %*% Rm[-1, 1]
+
+pop <- c(10, betaZ[1], betaZ[2], sigmaE, R2)
+estimate <- myMod2[,1]
+difference <- pop - estimate
+
+difTab <- cbind(pop, estimate, difference)
+#               pop   estimate   difference
+# b0    10.0000000  9.8555427  0.144457282
+# b1     2.3076923  2.3182149 -0.010522596
+# b2    -1.3461538 -1.3368715 -0.009282314
+# SD(e) 16.1538462  4.0163259 12.137520231
+# R2     0.3538462  0.3524265  0.001419650
 
 #-------------------------3.3d------------------------------------------#
 # Generating for Any Number of Predictors
@@ -294,7 +331,7 @@ R2 <- .5
 
 x_p <- list(
     mus = c(0,0,0,0,0),
-    sigmas = c(1, 2, 3, 4, 5),
+    sigmas = c(sqrt(1), sqrt(2), sqrt(3), sqrt(4), sqrt(5)),
     rhos = c(.15, .15, .15, .15, .15)
 )
 
@@ -312,58 +349,161 @@ method1Fun <- function(n, x_p, y_p, betas, R2){
     covarMatrix <- genSigma(params)
     # generate the Xs
     X <- rmvnorm(n, x_p$mus, covarMatrix)
+    # add intercept
+    X <- cbind(matrix(1, NROW(X)), X)
     # determine the variance of Y given betas and covarMatrix
     varY <- t(betas) %*% covarMatrix %*% betas # eq 22
     # determine the error variance 
     varE <- varY * (1/R2 - 1) 
     # generate y
-    Y <- y_p$mus + rowSums(betas*X) + rnorm(0, sqrt(varE), n = n)
+    Y <- y_p$mus + X[,-1] %*% betas + rnorm(0, sqrt(varE), n = n)
     dat <- cbind(Y, X)
     return(dat)
 }
 
 test1 <- method1Fun(n, x_p, y_p, betas, R2)
-method1Mod <- myLM(test1[,1], test1[,2:6])
-method1Mod[1:6,1] - c(y_p$mus, betas)
+method1Mod <- myLM(test1[,1], test1[,2:7])
+#           Estimate          SE    t value p value
+# b0    26.0219373 0.015237786 1707.72427       0
+# b1     0.9812441 0.015667438   62.62952       0
+# b2     1.0199428 0.011092474   91.94908       0
+# b3     0.9881404 0.009068983  108.95824       0
+# b4     0.9852023 0.007850763  125.49128       0
+# b5     1.0050628 0.007062545  142.30886       0
+# SD(e)  4.8184817          NA         NA      NA
+# R2     0.4986015          NA         NA      NA
+
+# get varE parameter to compare to estimate
+params <- transFun(x_p, y_p)
+# generate the covariance matrix, Sigma
+covarMatrix <- genSigma(params)
+# generate the Xs
+X <- rmvnorm(n, x_p$mus, covarMatrix)
+# add intercept
+X <- cbind(matrix(1, NROW(X)), X)
+# determine the variance of Y given betas and covarMatrix
+varY <- t(betas) %*% covarMatrix %*% betas # eq 22
+# determine the error variance 
+varE <- varY * (1/R2 - 1) 
+
+pop <- c(10, betas[1], betas[2], betas[3], betas[4], betas[5], varE, 0.5)
+estimate <- method1Mod[,1]
+difference <- pop - estimate
+
+difTab <- cbind(pop, estimate, difference)
+#           pop   estimate    difference
+# b0    10.00000 26.0219373 -16.021937347
+# b1     1.00000  0.9812441   0.018755865
+# b2     1.00000  1.0199428  -0.019942757
+# b3     1.00000  0.9881404   0.011859598
+# b4     1.00000  0.9852023   0.014797719
+# b5     1.00000  1.0050628  -0.005062766
+# SD(e) 23.28952  4.8184817  18.471042630
+# R2     0.50000  0.4986015   0.001398544
 
 # Method 2, generate from marginal correlations
 # Test the Method 1 function using five predictors with n = 100000 that are all cor- related 0.15 with variances from 1 to 5. The correlations with Y ought to be −.15, −.50, .15, 0.30, and 0.20. The mean and variance of Y are μy = 10, σy = 4. Set the seed to 1237
 set.seed(1237)
 n <- 100000
 betas <- c(1,1,1,1,1)
-R2 <- .5
+
 
 x_p <- list(
     mus = c(0,0,0,0,0),
-    sigmas = c(1, 2, 3, 4, 5),
+    sigmas = c(sqrt(1), sqrt(2), sqrt(3), sqrt(4), sqrt(5)),
     rhos = rep(.15, 10)
 )
 
 y_p <- list(
     mus = c(10),
-    sigmas = c(4),
+    sigmas = c(sqrt(4)),
     rhos = c(-.15, -.5, .15, .30, .20)
 )
-# where does the X come from? there are no mus?
-method2Fun <- function(n, x_p, y_p, betas, R2){
+
+method2Fun <- function(n, x_p, y_p, betas){
     #get params into workable form
     params <- transFun(x_p, y_p)
     #gereate covrmtrix for x
-    covarMatrixX <- genSigma(x_p)
+    covarMatrix <- genSigma(x_p)
     # generate X
-    X <- rmvnorm(n, x_p$mus, covarMatrixX)
+    X <- rmvnorm(n, x_p$mus, covarMatrix)
+    #intercept
+    X <- cbind(matrix(1, NROW(X)), X)
     # generate the covariance matrix, Sigma
     covarMatrix <- genSigma(params)
     # solve for the betas
     betas <- solve(covarMatrix[-1, -1]) %*% covarMatrix[1, -1]
     # determine the error variance 
-    varE <- covariancematirx[1,1] - t(betas) %*%  covarMatrix[1, -1]
+    varE <- covarMatrix[1,1] - t(betas) %*%  covarMatrix[1, -1]
     # generate y
-    Y <- y_p$mus + X %*% betas + rnorm(0, sqrt(varE), n = n)
+    Y <- y_p$mus + X[,-1] %*% betas + rnorm(0, sqrt(varE), n = n)
     dat <- cbind(Y, X)
     return(dat)
 }
 
-test2 <- method2Fun(100, x_p, y_p, betas = betas, R2 = R2)
-method2Mod <- myLM(test2[,1], test2[,2:6])
-method2Mod[1:6,1] - c(y_p$mus, betas)
+test2 <- method2Fun(100, x_p, y_p, betas = betas)
+method2Mod <- myLM(test2[,1], test2[,2:7])
+method2Mod
+
+#       Estimate         SE   t value      p value
+# b0    10.2086353 0.12571876 81.202162 7.344336e-89
+# b1    -0.4859086 0.12179292 -3.989630 1.309803e-04
+# b2    -0.7473232 0.09543021 -7.831097 7.208772e-12
+# b3     0.1828802 0.07215174  2.534661 1.290787e-02
+# b4     0.3673510 0.06622996  5.546599 2.667136e-07
+# b5     0.1796883 0.05852594  3.070234 2.796316e-03
+# SD(e)  1.2342154         NA        NA           NA
+# R2     0.5314705         NA        NA           NA
+
+# calculate R2
+# function to create the covariance matrix
+
+corMatrix = matrix(NA, nrow = length(params$sigmas), ncol = length(params$sigmas))
+    # put in the diagonal correlations which is always just 1s
+diag(corMatrix) <- rep(1, length(params$sigmas))
+    # add in the correlations bw variables on the lower triangle
+corMatrix[lower.tri(corMatrix)] <- params$rhos
+    #and the upper triangle
+corMatrix[upper.tri(corMatrix)] <- t(corMatrix)[upper.tri(t(corMatrix))]
+
+#eq 27
+R2 <- corMatrix[-1,1] %*% solve(corMatrix[-1, -1]) %*% corMatrix[-1, 1]
+
+
+pop <- c(10, betas[1], betas[2], betas[3], betas[4], betas[5], varE, R2)
+estimate <- method2Mod[,1]
+difference <- pop - estimate
+
+difTab <- cbind(pop, estimate, difference)
+
+# get varE to compare to estimate
+params <- transFun(x_p, y_p)
+#gereate covrmtrix for x
+covarMatrix <- genSigma(x_p)
+# generate X
+X <- rmvnorm(n, x_p$mus, covarMatrix)
+#intercept
+X <- cbind(matrix(1, NROW(X)), X)
+# generate the covariance matrix, Sigma
+covarMatrix <- genSigma(params)
+# solve for the betas
+betas <- solve(covarMatrix[-1, -1]) %*% covarMatrix[1, -1]
+# determine the error variance 
+varE <- covarMatrix[1,1] - t(betas) %*%  covarMatrix[1, -1]
+
+pop <- c(10, betas[1], betas[2], betas[3], betas[4], betas[5], varE, 0.5)
+estimate <- method2Mod[,1]
+difference <- pop - estimate
+
+difTab <- cbind(pop, estimate, difference)
+
+# difTab
+#          pop   estimate  difference
+# b0    10.0000000 10.2086353 -0.20863535
+# b1    -0.3529412 -0.4859086  0.13296745
+# b2    -0.8318903 -0.7473232 -0.08456711
+# b3     0.2037707  0.1828802  0.02089050
+# b4     0.3529412  0.3673510 -0.01440985
+# b5     0.2104535  0.1796883  0.03076514
+# SD(e)  2.0000000  1.2342154  0.76578457
+# R2     0.5000000  0.5314705 -0.03147045
