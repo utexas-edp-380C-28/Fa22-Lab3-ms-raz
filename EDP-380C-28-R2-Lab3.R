@@ -364,7 +364,7 @@ method1Fun <- function(n, x_p, y_p, betas, R2){
     # expectation of Y
     Ey <- params$mus[1] - t(params$mus[-1]) %*% betas
     # generate y
-    Y <- Ey[1] + X[,-1] %*% betas + rnorm(n, 0, sqrt(sigmaE))
+    Y <- Ey[1] + X[,-1] %*% betas + rnorm(n, 0, sqrt(varE))
     
     dat <- cbind(Y, X)
     return(dat)
@@ -372,15 +372,15 @@ method1Fun <- function(n, x_p, y_p, betas, R2){
 
 test1 <- method1Fun(n, x_p, y_p, betas, R2)
 method1Mod <- myLM(test1[,1], test1[,2:7])
-#           Estimate          SE    t value p value
-# b0    25.0182701 0.012690524 1971.41356       0
-# b1     0.9843795 0.013048351   75.44091       0
-# b2     1.0166090 0.009238173  110.04438       0
-# b3     0.9901229 0.007552943  131.09100       0
-# b4     0.9876760 0.006538371  151.05843       0
-# b5     1.0042164 0.005881917  170.72944       0
-# SD(e)  4.0129881          NA         NA      NA
-# R2     0.5893671          NA         NA      NA
+#       Estimate          SE    t value p value
+# b0    25.0219373 0.015237786 1642.09794       0
+# b1     0.9812441 0.015667438   62.62952       0
+# b2     1.0199428 0.011092474   91.94908       0
+# b3     0.9881404 0.009068983  108.95824       0
+# b4     0.9852023 0.007850763  125.49128       0
+# b5     1.0050628 0.007062545  142.30886       0
+# SD(e)  4.8184817          NA         NA      NA
+# R2     0.4986015          NA         NA      NA
 
 # get varE parameter to compare to estimate
 params <- transFun(x_p, y_p)
@@ -404,14 +404,14 @@ difference <- pop - estimate
 
 difTab <- cbind(pop, estimate, difference)
 #           pop   estimate   difference
-# b0    25.000000 25.0182701 -0.018270136
-# b1     1.000000  0.9843795  0.015620494
-# b2     1.000000  1.0166090 -0.016608976
-# b3     1.000000  0.9901229  0.009877059
-# b4     1.000000  0.9876760  0.012324021
-# b5     1.000000  1.0042164 -0.004216436
-# SD(e)  4.825922  4.0129881  0.812933981
-# R2     0.500000  0.5893671 -0.089367060
+# b0    25.000000 25.0219373 -0.021937347
+# b1     1.000000  0.9812441  0.018755865
+# b2     1.000000  1.0199428 -0.019942757
+# b3     1.000000  0.9881404  0.011859598
+# b4     1.000000  0.9852023  0.014797719
+# b5     1.000000  1.0050628 -0.005062766
+# SD(e)  4.825922  4.8184817  0.007440416
+# R2     0.500000  0.4986015  0.001398544
 
 # Method 2, generate from marginal correlations
 # Test the Method 1 function using five predictors with n = 100000 that are all cor- related 0.15 with variances from 1 to 5. The correlations with Y ought to be −.15, −.50, .15, 0.30, and 0.20. The mean and variance of Y are μy = 10, σy = 4. Set the seed to 1237
@@ -449,7 +449,7 @@ method2Fun <- function(n, x_p, y_p, betas){
     # expectation of Y
     Ey <- params$mus[1] - t(params$mus[-1]) %*% betas
     # generate y
-    Y <- Ey[1] + X[,-1] %*% betas + rnorm(n, 0, sqrt(sigmaE))
+    Y <- Ey[1] + X[,-1] %*% betas + rnorm(n, 0, sqrt(varE))
     
     dat <- cbind(Y, X)
     return(dat)
@@ -459,33 +459,33 @@ test2 <- method2Fun(100, x_p, y_p, betas = betas)
 method2Mod <- myLM(test2[,1], test2[,2:7])
 method2Mod
 
-#       Estimate         SE   t value      p value
-# b0    10.2086353 0.12571876 81.202162 7.344336e-89
-# b1    -0.4859086 0.12179292 -3.989630 1.309803e-04
-# b2    -0.7473232 0.09543021 -7.831097 7.208772e-12
-# b3     0.1828802 0.07215174  2.534661 1.290787e-02
-# b4     0.3673510 0.06622996  5.546599 2.667136e-07
-# b5     0.1796883 0.05852594  3.070234 2.796316e-03
-# SD(e)  1.2342154         NA        NA           NA
-# R2     0.5314705         NA        NA           NA
+#       Estimate        SE   t value      p value
+# b0    10.4172707 0.2514375 41.430851 3.514433e-62
+# b1    -0.9718173 0.2435858 -3.989630 1.309803e-04
+# b2    -1.4946464 0.1908604 -7.831097 7.208772e-12
+# b3     0.3657604 0.1443035  2.534661 1.290787e-02
+# b4     0.7347021 0.1324599  5.546599 2.667136e-07
+# b5     0.3593766 0.1170519  3.070234 2.796316e-03
+# SD(e)  2.4684309        NA        NA           NA
+# R2     0.5314705        NA        NA           NA
 
 # calculate R2
 # function to create the covariance matrix
 params <- transFun(x_p, y_p)
 # empty matrix
 corMatrix = matrix(NA, nrow = length(params$sigmas), ncol = length(params$sigmas))
-    # put in the diagonal correlations which is always just 1s
+# put in the diagonal correlations which is always just 1s
 diag(corMatrix) <- rep(1, length(params$sigmas))
-    # add in the correlations bw variables on the lower triangle
+# add in the correlations bw variables on the lower triangle
 corMatrix[lower.tri(corMatrix)] <- params$rhos
-    #and the upper triangle
+#and the upper triangle
 corMatrix[upper.tri(corMatrix)] <- t(corMatrix)[upper.tri(t(corMatrix))]
 # get R2 to compare to estimate eq 27
 R2 <- corMatrix[-1, 1] %*% solve(corMatrix[-1, -1]) %*% corMatrix[1, -1]
 
 Ey <- params$mus[1] - t(params$mus[-1]) %*% betas
 # generate y
-Y <- Ey[1] + X[,-1] %*% betas + rnorm(n, 0, sqrt(sigmaE))
+Y <- Ey[1] + X[,-1] %*% betas + rnorm(n, 0, sqrt(varE))
 
 #gereate covrmtrix for x
 covarMatrix <- genSigma(params)
